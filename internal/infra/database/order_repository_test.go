@@ -16,7 +16,7 @@ type OrderRepositoryTestSuite struct {
 	Db *sql.DB
 }
 
-func (suite *OrderRepositoryTestSuite) SetupSuite() {
+func (suite *OrderRepositoryTestSuite) SetupTest() {
 	db, err := sql.Open("sqlite3", ":memory:")
 	suite.NoError(err)
 	db.Exec("CREATE TABLE orders (id varchar(255) NOT NULL, price float NOT NULL, tax float NOT NULL, final_price float NOT NULL, PRIMARY KEY (id))")
@@ -48,4 +48,22 @@ func (suite *OrderRepositoryTestSuite) TestGivenAnOrder_WhenSave_ThenShouldSaveO
 	suite.Equal(order.Price, orderResult.Price)
 	suite.Equal(order.Tax, orderResult.Tax)
 	suite.Equal(order.FinalPrice, orderResult.FinalPrice)
+}
+
+func (suite *OrderRepositoryTestSuite) TestWhenListOrders_ThenShouldOrder() {
+	order, err := entity.NewOrder("1234", 10.0, 2.0)
+	suite.NoError(err)
+	suite.NoError(order.CalculateFinalPrice())
+
+	repo := NewOrderRepository(suite.Db)
+	err = repo.Save(order)
+	suite.NoError(err)
+
+	orders, err := repo.List()
+	suite.NoError(err)
+	suite.Equal(1, len(orders))
+	suite.Equal(order.ID, orders[0].ID)
+	suite.Equal(order.Price, orders[0].Price)
+	suite.Equal(order.Tax, orders[0].Tax)
+	suite.Equal(order.FinalPrice, orders[0].FinalPrice)
 }
