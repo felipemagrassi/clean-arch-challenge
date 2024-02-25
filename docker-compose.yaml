@@ -10,8 +10,10 @@ services:
       - 50051:50051
       - 8000:8000
     depends_on:
-      - mysql
-      - rabbitmq
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     env_file:
         - .env.docker
   mysql:
@@ -26,6 +28,29 @@ services:
       - 3306:3306
     volumes:
       - .docker/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      start_period: 0s
+      retries: 10
+  migrate:
+    image: migrate/migrate
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: 
+      [
+        "migrate",
+        "-path",
+        "/migrations",
+        "-database",
+        "mysql://root:root@tcp(mysql:3306)/orders"
+      ]
+    command: ["up"]
+    volumes:
+      - ./internal/infra/database/migrations/:/migrations
   rabbitmq:
     image: rabbitmq:3-management
     container_name: rabbitmq
@@ -36,3 +61,8 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
